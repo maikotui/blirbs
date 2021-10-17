@@ -17,14 +17,15 @@ enum AIMode {
 */
 class Blirb {
   // General constants
-  final float INITIAL_WEIGHT = 2.0;
+  final float INITIAL_WEIGHT = 1.0;
   final float MAX_SPEED = 2;
   final float MAX_FORCE = 1.0;
-  final float NEIGHBOR_DISTANCE = 60;
+  final float NEIGHBOR_DISTANCE = 30;
   
   // Wander constants
-  final float WANDER_CIRCLE_DISTANCE = 10.0;
-  final float WANDER_CIRCLE_ANGLE = 1.0;
+  final float WANDER_CIRCLE_DISTANCE = 20.0;
+  final float WANDER_CIRCLE_RADIUS = 10.0;
+  final float WANDER_CIRCLE_ANGLE = 0.2;
   final float ANGLE_CHANGE = 0.5;
   
   // Flocking constants
@@ -41,9 +42,9 @@ class Blirb {
   // The size of this blirb
   public float weight = INITIAL_WEIGHT;
   // A list of all the other blirbs surrounding this blirb
-  public ArrayList<Blirb> neighbors;
+  public ArrayList<Blirb> neighbors = new ArrayList();
   // A debug mode that displays AI information
-  public boolean debugDrawEnabled = false;
+  public boolean debugDrawEnabled = true;
   
   // The angle this Blirb is wandering towards
   private float _wanderAngle = random(TWO_PI);
@@ -82,7 +83,11 @@ class Blirb {
     
     // Add the applied to the acceleration
     acceleration.add(force.limit(MAX_FORCE));
+    
+    // Update physics values
     physicsUpdate();
+    
+    // Draw the blirb
     render();
   }
   
@@ -130,8 +135,17 @@ class Blirb {
     if(debugDrawEnabled) {
       stroke(255, 255, 255);
       
+      // Draw the neighbor radius
       if(mode == AIMode.FLOCK) {
         circle(0, 0, NEIGHBOR_DISTANCE);
+      }
+      
+      // Draw the wander circle
+      if(mode == AIMode.WANDER) {
+        rotate(-theta);
+        PVector circleCenter = velocity.copy().normalize().mult(WANDER_CIRCLE_DISTANCE);
+        circle(circleCenter.x, circleCenter.y, WANDER_CIRCLE_RADIUS);
+        rotate(theta);
       }
       
       stroke(c);
@@ -160,7 +174,7 @@ class Blirb {
     
     // Calculate the displacement force from the circle center to the radius
     PVector displacement = new PVector(0, -1);
-    displacement.mult(WANDER_CIRCLE_DISTANCE);
+    displacement.mult(WANDER_CIRCLE_RADIUS);
     
     // Randomly change the displacement
     float len = displacement.mag();
