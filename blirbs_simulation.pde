@@ -31,11 +31,13 @@ void spawnBlirbs() {
   for(int i = 0; i < NUM_FLOCKERS; i++) {
     Blirb b = new Blirb(random(width), random(height), random(TWO_PI), AIMode.FLOCK, color(0,255,0));
     b.neighbors = blirbs;
+    b.weight = random(1.0, 10.0);
     blirbs.add(b);
   }
   for(int i = 0; i < NUM_WANDERERS; i++) {
-    Blirb b = new Blirb(random(width), random(height), random(TWO_PI), AIMode.WANDER, color(255,0,0));
+    Blirb b = new Blirb(random(width), random(height), random(TWO_PI), AIMode.WANDER, color(128,0,128));
     b.neighbors = blirbs;
+    b.weight = random(1.0, 10.0);
     blirbs.add(b);
   }
 }

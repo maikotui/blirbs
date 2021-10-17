@@ -44,7 +44,7 @@ class Blirb {
   // A list of all the other blirbs surrounding this blirb
   public ArrayList<Blirb> neighbors = new ArrayList();
   // A debug mode that displays AI information
-  public boolean debugDrawEnabled = true;
+  public boolean debugDrawEnabled = false;
   
   // The angle this Blirb is wandering towards
   private float _wanderAngle = random(TWO_PI);
@@ -82,7 +82,7 @@ class Blirb {
     }
     
     // Add the applied to the acceleration
-    acceleration.add(force.limit(MAX_FORCE));
+    acceleration.add(force.mult(weight).limit(MAX_FORCE));
     
     // Update physics values
     physicsUpdate();
@@ -137,14 +137,14 @@ class Blirb {
       
       // Draw the neighbor radius
       if(mode == AIMode.FLOCK) {
-        circle(0, 0, NEIGHBOR_DISTANCE);
+        circle(0, 0, NEIGHBOR_DISTANCE * weight);
       }
       
       // Draw the wander circle
       if(mode == AIMode.WANDER) {
         rotate(-theta);
-        PVector circleCenter = velocity.copy().normalize().mult(WANDER_CIRCLE_DISTANCE);
-        circle(circleCenter.x, circleCenter.y, WANDER_CIRCLE_RADIUS);
+        PVector circleCenter = velocity.copy().normalize().mult(WANDER_CIRCLE_DISTANCE * weight);
+        circle(circleCenter.x, circleCenter.y, WANDER_CIRCLE_RADIUS * weight);
         rotate(theta);
       }
       
@@ -170,11 +170,11 @@ class Blirb {
     // Create a circle in front of the blirb
     PVector circleCenter = velocity;
     circleCenter.normalize();
-    circleCenter.mult(WANDER_CIRCLE_DISTANCE);
+    circleCenter.mult(WANDER_CIRCLE_DISTANCE * weight);
     
     // Calculate the displacement force from the circle center to the radius
     PVector displacement = new PVector(0, -1);
-    displacement.mult(WANDER_CIRCLE_RADIUS);
+    displacement.mult(WANDER_CIRCLE_RADIUS * weight);
     
     // Randomly change the displacement
     float len = displacement.mag();
@@ -210,19 +210,19 @@ class Blirb {
   */
   PVector calculateAlignment() {
     PVector force = new PVector();
-    int numNeighbors = 0;
+    int neighborWeights = 0;
     
     // For each neighbor within the neighbor distance
     for(Blirb blirb : neighbors) {
-      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE) {
-        force.add(blirb.velocity); // Calculate the sum of all neighbors' velocity
-        numNeighbors++;
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * weight) {
+        force.add(PVector.mult(blirb.velocity, blirb.weight)); // Calculate the sum of all neighbors' velocity
+        neighborWeights += blirb.weight;
       }
     }
     
     // Avoid divide by zero error
-    if(numNeighbors != 0) {
-      force.div(numNeighbors); // Calculate average of all neighbors' velocities
+    if(neighborWeights != 0) {
+      force.div(neighborWeights); // Calculate average of all neighbors' velocities
       force.normalize();
     }
     
@@ -236,19 +236,19 @@ class Blirb {
   */
   PVector calculateCohesion() {
     PVector force = new PVector();
-    int numNeighbors = 0;
+    int neighborWeights = 0;
     
     // For each neighbor within the neighbor distance
     for(Blirb blirb : neighbors) {
-      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE) {
-        force.add(blirb.position); // Calculate the sum of all neighbors' positions
-        numNeighbors++;
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * weight) {
+        force.add(PVector.mult(blirb.position, blirb.weight)); // Calculate the sum of all neighbors' positions
+        neighborWeights += blirb.weight;
       }
     }
     
     // Avoid divide by zero error
-    if(numNeighbors != 0) {
-      force.div(numNeighbors); // Calculate the position of the center of mass
+    if(neighborWeights != 0) {
+      force.div(neighborWeights); // Calculate the position of the center of mass
       force.sub(position); // Calculate the vector from this blirb's position to the center of mass
       force.normalize();
     }
@@ -263,19 +263,19 @@ class Blirb {
   */
   PVector calculateSeparation() {
     PVector force = new PVector();
-    int numNeighbors = 0;
+    int neighborWeights = 0;
     
     // For each neighbor within the neighbor distance
     for(Blirb blirb : neighbors) {
-      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE) {
-        force.add(PVector.sub(blirb.position, position)); // Calculate the sum directions towards neighbors' positions
-        numNeighbors++;
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * weight) {
+        force.add(PVector.sub(blirb.position, position).mult(blirb.weight)); // Calculate the sum directions towards neighbors' positions
+        neighborWeights += blirb.weight;
       }
     }
     
     // Avoid divide by zero error
-    if(numNeighbors != 0) {
-      force.div(numNeighbors); // Calculate the average direction towards neighbors' positions
+    if(neighborWeights != 0) {
+      force.div(neighborWeights); // Calculate the average direction towards neighbors' positions
       force.mult(-1); // Invert it so we move away from it
       force.normalize();
     }
