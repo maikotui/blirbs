@@ -4,7 +4,7 @@ enum AIMode {
   HUNT
 }
 
-class Bot {
+class Blirb {
   // General constants
   final float MAX_SPEED = 2;
   final float MAX_FORCE = 1.0;
@@ -20,7 +20,7 @@ class Bot {
   final float COHESION_AMOUNT = 1.0;
   final float SEPARATION_AMOUNT = 1.0;
   
-  public ArrayList<Bot> neighbors;
+  public ArrayList<Blirb> neighbors;
   
   AIMode mode;
   
@@ -30,7 +30,7 @@ class Bot {
   boolean debugDrawEnabled = false;
   
   
-  public Bot(float x, float y, float rotation, AIMode mode, color c) {
+  public Blirb(float x, float y, float rotation, AIMode mode, color c) {
     acceleration = new PVector(0,0);
     position = new PVector(x,y);
     velocity = new PVector(cos(rotation), sin(rotation));
@@ -62,7 +62,7 @@ class Bot {
   
   float wanderAngle = random(TWO_PI);
   PVector calculateWander() {
-    // Create a circle in front of the bot
+    // Create a circle in front of the blirb
     PVector circleCenter = velocity;
     circleCenter.normalize();
     circleCenter.mult(WANDER_CIRCLE_DISTANCE);
@@ -92,9 +92,9 @@ class Bot {
   PVector calculateAlignment() {
     PVector force = new PVector();
     int numNeighbors = 0;
-    for(Bot bot : neighbors) {
-      if(bot != this && position.dist(bot.position) <= NEIGHBOR_DISTANCE) {
-        force.add(bot.velocity);
+    for(Blirb blirb : neighbors) {
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE) {
+        force.add(blirb.velocity);
         numNeighbors++;
       }
     }
@@ -110,9 +110,9 @@ class Bot {
   PVector calculateCohesion() {
     PVector force = new PVector();
     int numNeighbors = 0;
-    for(Bot bot : neighbors) {
-      if(bot != this && position.dist(bot.position) <= NEIGHBOR_DISTANCE) {
-        force.add(bot.position);
+    for(Blirb blirb : neighbors) {
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE) {
+        force.add(blirb.position);
         numNeighbors++;
       }
     }
@@ -129,9 +129,9 @@ class Bot {
   PVector calculateSeparation() {
     PVector force = new PVector();
     int numNeighbors = 0;
-    for(Bot bot : neighbors) {
-      if(bot != this && position.dist(bot.position) <= NEIGHBOR_DISTANCE) {
-        force.add(PVector.sub(bot.position, position));
+    for(Blirb blirb : neighbors) {
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE) {
+        force.add(PVector.sub(blirb.position, position));
         numNeighbors++;
       }
     }
