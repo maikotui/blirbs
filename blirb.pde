@@ -18,9 +18,11 @@ enum AIMode {
 class Blirb {
   // General constants
   final float INITIAL_WEIGHT = 1.0;
-  final float MAX_SPEED = 2;
-  final float MAX_FORCE = 1.0;
+  final float MAX_SPEED = 2.5;
+  final float MAX_FORCE = 100;
   final float NEIGHBOR_DISTANCE = 30;
+  final float HUNT_DISTANCE = 15;
+  final float EAT_DISTANCE = 1.0;
   
   // Wander constants
   final float WANDER_CIRCLE_DISTANCE = 20.0;
@@ -40,9 +42,7 @@ class Blirb {
   // The color used to display this blirb
   public color c;
   // The size of this blirb
-  public float weight = INITIAL_WEIGHT;
-  // A list of all the other blirbs surrounding this blirb
-  public ArrayList<Blirb> neighbors = new ArrayList();
+  public float mass = INITIAL_WEIGHT;
   // A debug mode that displays AI information
   public boolean debugDrawEnabled = false;
   
@@ -70,25 +70,19 @@ class Blirb {
     This function calculates the movement amount for this blirb and draws it.
   */
   public void update() {
-    // Calculate the amount of force to apply based on the AIMode
-    PVector force = new PVector();
-    switch(mode) {
-     case WANDER:
-       force = calculateWander();
-       break;
-     case FLOCK:
-       force = calculateFlock();
-       break;
-    }
-    
-    // Add the applied to the acceleration
-    acceleration.add(force.mult(weight).limit(MAX_FORCE));
+    // Figure out where to move
+    chooseMovementDirection();
     
     // Update physics values
     physicsUpdate();
     
     // Draw the blirb
     render();
+  }
+  
+  
+  public void consume(float foodWeight) {
+    mass += foodWeight;
   }
   
   
@@ -103,14 +97,11 @@ class Blirb {
     // Adjust position based on velocity
     position.add(velocity);
     
-    // Reset acceleration
-    acceleration.mult(0); 
-    
     // Wrap position inside bounds
-    if (position.x < -weight) position.x = width+weight;
-    if (position.y < -weight) position.y = height+weight;
-    if (position.x > width+weight) position.x = -weight;
-    if (position.y > height+weight) position.y = -weight;
+    if (position.x < -mass) position.x = width+mass;
+    if (position.y < -mass) position.y = height+mass;
+    if (position.x > width+mass) position.x = -mass;
+    if (position.y > height+mass) position.y = -mass;
   }
   
   
@@ -137,14 +128,14 @@ class Blirb {
       
       // Draw the neighbor radius
       if(mode == AIMode.FLOCK) {
-        circle(0, 0, NEIGHBOR_DISTANCE * weight);
+        circle(0, 0, NEIGHBOR_DISTANCE * mass);
       }
       
       // Draw the wander circle
       if(mode == AIMode.WANDER) {
         rotate(-theta);
-        PVector circleCenter = velocity.copy().normalize().mult(WANDER_CIRCLE_DISTANCE * weight);
-        circle(circleCenter.x, circleCenter.y, WANDER_CIRCLE_RADIUS * weight);
+        PVector circleCenter = velocity.copy().normalize().mult(WANDER_CIRCLE_DISTANCE * mass);
+        circle(circleCenter.x, circleCenter.y, WANDER_CIRCLE_RADIUS * mass);
         rotate(theta);
       }
       
@@ -153,13 +144,63 @@ class Blirb {
     
     // Draw the blirb triangle
     beginShape(TRIANGLES);
-    vertex(0, -weight*2);
-    vertex(-weight, weight*2);
-    vertex(weight, weight*2);
+    vertex(0, -mass*2);
+    vertex(-mass, mass*2);
+    vertex(mass, mass*2);
     endShape();
     
     // Pop the matrix
     popMatrix();
+  }
+  
+  void chooseMovementDirection() {
+    PVector force = new PVector();
+    
+    // Find the closest food within hunting distance
+    Food closestFood = null;
+    ArrayList<Food> foodsToEat = new ArrayList();
+    for(Food f : allFoods) {
+      // Calculate how far away the food is
+      float distF = PVector.dist(position, f.position);
+      
+      // If the food is within eating distance, add it to the list of foods to eat
+      if(distF <= EAT_DISTANCE * mass) {
+        foodsToEat.add(f);
+      } 
+      else if(distF <= HUNT_DISTANCE * mass) { // If the food is within hunting distance, consider moving towards it
+        if(closestFood == null) { // We have not found a food in hunting distance yet
+           closestFood = f;
+        } 
+        else if(distF < PVector.dist(position, closestFood.position)) { // This is closer than our closest found food
+          closestFood = f;
+        }
+      }
+    }
+    
+    // Eat the foods that are nearby
+    for(Food f : foodsToEat) {
+       consume(f.mass);
+       allFoods.remove(f);
+    }
+    
+    // If there is a food closeby, move towards it
+    if(closestFood != null) {
+      force = PVector.sub(closestFood.position, position);
+    }
+    else { // No food nearby, so we can move according to the AI mode
+      switch(mode) {
+       case WANDER:
+         force = calculateWander();
+         break;
+       case FLOCK:
+         force = calculateFlock();
+         break;
+      }    
+    }
+    
+    
+    // Add the applied to the acceleration
+    acceleration.add(force.div(mass)).limit(MAX_FORCE);
   }
   
 
@@ -170,11 +211,11 @@ class Blirb {
     // Create a circle in front of the blirb
     PVector circleCenter = velocity;
     circleCenter.normalize();
-    circleCenter.mult(WANDER_CIRCLE_DISTANCE * weight);
+    circleCenter.mult(WANDER_CIRCLE_DISTANCE * mass);
     
     // Calculate the displacement force from the circle center to the radius
     PVector displacement = new PVector(0, -1);
-    displacement.mult(WANDER_CIRCLE_RADIUS * weight);
+    displacement.mult(WANDER_CIRCLE_RADIUS * mass);
     
     // Randomly change the displacement
     float len = displacement.mag();
@@ -213,10 +254,10 @@ class Blirb {
     int neighborWeights = 0;
     
     // For each neighbor within the neighbor distance
-    for(Blirb blirb : neighbors) {
-      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * weight) {
-        force.add(PVector.mult(blirb.velocity, blirb.weight)); // Calculate the sum of all neighbors' velocity
-        neighborWeights += blirb.weight;
+    for(Blirb blirb : allBlirbs) {
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * mass) {
+        force.add(PVector.mult(blirb.velocity, blirb.mass)); // Calculate the sum of all neighbors' velocity
+        neighborWeights += blirb.mass;
       }
     }
     
@@ -239,10 +280,10 @@ class Blirb {
     int neighborWeights = 0;
     
     // For each neighbor within the neighbor distance
-    for(Blirb blirb : neighbors) {
-      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * weight) {
-        force.add(PVector.mult(blirb.position, blirb.weight)); // Calculate the sum of all neighbors' positions
-        neighborWeights += blirb.weight;
+    for(Blirb blirb : allBlirbs) {
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * mass) {
+        force.add(PVector.mult(blirb.position, blirb.mass)); // Calculate the sum of all neighbors' positions
+        neighborWeights += blirb.mass;
       }
     }
     
@@ -264,12 +305,11 @@ class Blirb {
   PVector calculateSeparation() {
     PVector force = new PVector();
     int neighborWeights = 0;
-    
     // For each neighbor within the neighbor distance
-    for(Blirb blirb : neighbors) {
-      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * weight) {
-        force.add(PVector.sub(blirb.position, position).mult(blirb.weight)); // Calculate the sum directions towards neighbors' positions
-        neighborWeights += blirb.weight;
+    for(Blirb blirb : allBlirbs) {
+      if(blirb != this && position.dist(blirb.position) <= NEIGHBOR_DISTANCE * mass) {
+        force.add(PVector.sub(blirb.position, position).mult(blirb.mass)); // Calculate the sum directions towards neighbors' positions
+        neighborWeights += blirb.mass;
       }
     }
     
