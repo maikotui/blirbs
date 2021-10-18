@@ -1,8 +1,10 @@
-class Food {
-  public final float INITIAL_MASS = 0.1;
-  
-  public PVector position;
+class Edible {
   public float mass;
+  public PVector position;
+}
+
+class Food extends Edible {
+  public final float INITIAL_MASS = 0.75;
    
   public Food() {
     position = new PVector(random(width), random(height));
@@ -27,7 +29,7 @@ class Food {
     // Move matrix to the position of the blirb and rotate accordingly
     translate(position.x, position.y);
     
-    circle(0, 0, mass * 50);
+    circle(0, 0, mass * 3);
     
     // Pop the matrix
     popMatrix();
