@@ -1,16 +1,23 @@
-/* //<>// //<>// //<>//
-*  Implementation of the Blirb
+/* //<>//
+ *  Maiko Tuitupou Jr
+ *  -----------------
+ *  Implementation of the Blirb.
  */
 
 
 /**
- The movement mode for this AI
+ The movement mode for this AI.
  */
 enum AIMode {
-  WANDER // Wanders aimlessly in random directions
-    , FLOCK // Flocks with other nearby Blirbs
+  WANDER, FLOCK
 }
 
+/**
+ Defines how hungry the blirb is.
+ If the blirb is full, they will ignore food.
+ If the blirb is hungry, they will search for food.
+ If the blirb is starving, they will search for food and hunt other blirbs.
+ */
 enum HungerState {
   FULL, HUNGRY, STARVING
 }
@@ -40,7 +47,7 @@ class Blirb extends Edible {
 
   // Flocking constants
   final int MIN_NEIGHBORS_TO_FLOCK = 3; // Number of neighbors to start flocking with
-  final float NEIGHBOR_DISTANCE = 30;
+  final float NEIGHBOR_DISTANCE = 45;
   final float ALIGNMENT_AMOUNT = 1.0;
   final float COHESION_AMOUNT = 1.0;
   final float SEPARATION_AMOUNT = 1.0;
@@ -101,6 +108,9 @@ class Blirb extends Edible {
   }
 
 
+  /**
+   Satiates hunger and grows by the given food weight
+   */
   public void consume(float foodWeight) {
     appetite = HungerState.FULL;
     _timeLastAte = millis();
@@ -108,6 +118,9 @@ class Blirb extends Edible {
   }
 
 
+  /**
+   Queues this bird for removal on the next frame
+   */
   public void kill() {
     queueBlirbDeath(this);
   }
@@ -116,7 +129,7 @@ class Blirb extends Edible {
   /**
    The physics update frame. Adjusts physics variables.
    */
-  void physicsUpdate() {
+  private void physicsUpdate() {
     // Velocity = acceleration * time (which we expect is constant so we ignore it)
     velocity.add(acceleration);
     if (appetite == HungerState.STARVING) {
@@ -141,7 +154,7 @@ class Blirb extends Edible {
    Draws the blirb as a triangle with color "c". If the debug drawing mode is enabled,
    it will also draw shapes related to AI calculations.
    */
-  void render() {
+  private void render() {
     // Calculate the amount of rotation needed when drawing this blirb
     float theta = velocity.heading() + radians(90);
 
@@ -206,19 +219,28 @@ class Blirb extends Edible {
   }
 
 
-  void updateHungerState() {
+  /**
+   Updates the current hunger state of the blirb based on when it last ate
+   */
+  private void updateHungerState() {
     int timeSinceLastAte = millis() - _timeLastAte;
-    if (timeSinceLastAte > TIME_TILL_DEATH * 1_000) {
+    if (timeSinceLastAte > TIME_TILL_DEATH * 1000) {
       kill();
-    } else if (timeSinceLastAte > TIME_TILL_STARVING * 1_000) {
+    } else if (timeSinceLastAte > TIME_TILL_STARVING * 1000) {
       appetite = HungerState.STARVING;
-    } else if (timeSinceLastAte > TIME_TILL_HUNGRY * 1_000) {
+    } else if (timeSinceLastAte > TIME_TILL_HUNGRY * 1000) {
       appetite = HungerState.HUNGRY;
     }
   }
 
 
-  void chooseMovementDirection() {
+  /**
+  Chooses an appropriate direction to move.
+  If there is food nearby, it will move towards it to eat it.
+  Otherwise, if there are nearby blirbs, it will flock towards them.
+  If neither are true, it will wander aimlessly.
+  */
+  private void chooseMovementDirection() {
     PVector force = new PVector();
 
     // If the blirb is hungry, find the closest food within hunting distance
@@ -289,7 +311,8 @@ class Blirb extends Edible {
         neighbors.add(blirb);
       }
     }
-
+  
+    // Decide whether to flock or wander
     if (neighbors.size() > MIN_NEIGHBORS_TO_FLOCK) {
       mode = AIMode.FLOCK;
     } else {
@@ -304,14 +327,11 @@ class Blirb extends Edible {
       break;
     }
 
-
-
     // Add the applied to the acceleration
     acceleration.add(force.div(mass));
-    if(appetite == HungerState.STARVING) {
-     acceleration.limit(MAX_FORCE * 2); 
-    }
-    else {
+    if (appetite == HungerState.STARVING) {
+      acceleration.limit(MAX_FORCE * 2);
+    } else {
       acceleration.limit(MAX_FORCE);
     }
   }
@@ -320,7 +340,7 @@ class Blirb extends Edible {
   /**
    Calculates the force for when the blirb is in "wander" mode.
    */
-  PVector calculateWander() {
+  private PVector calculateWander() {
     // Create a circle in front of the blirb
     PVector circleCenter = velocity;
     circleCenter.normalize();
@@ -348,7 +368,7 @@ class Blirb extends Edible {
    Calculates the force for when the blirb is in "flock" mode.
    Flocking force is the sum of alignment, cohesion, and separation.
    */
-  PVector calculateFlock(ArrayList<Blirb> neighbors) {
+  private PVector calculateFlock(ArrayList<Blirb> neighbors) {
     // flocking = alignment + cohesion + separation
     PVector flockForce = new PVector();
     flockForce.add(calculateAlignment(neighbors).mult(ALIGNMENT_AMOUNT));
@@ -362,7 +382,7 @@ class Blirb extends Edible {
    Calculates the amount the alignment with respect to the blirb's neighbors.
    Alignment is the average of the neighbor blirb's velocity.
    */
-  PVector calculateAlignment(ArrayList<Blirb> neighbors) {
+  private PVector calculateAlignment(ArrayList<Blirb> neighbors) {
     PVector force = new PVector();
     int neighborWeights = 0;
 
@@ -386,7 +406,7 @@ class Blirb extends Edible {
    Calculates the amount of cohesion with respect to the blirb's neighbors.
    Cohesion is the direction towards the center of mass.
    */
-  PVector calculateCohesion(ArrayList<Blirb> neighbors) {
+  private PVector calculateCohesion(ArrayList<Blirb> neighbors) {
     PVector force = new PVector();
     int neighborWeights = 0;
 
@@ -411,7 +431,7 @@ class Blirb extends Edible {
    Calculates the amount of separation with respect to the blirb's neighbors.
    Separation is the behaviour that steers blirbs away from each other.
    */
-  PVector calculateSeparation(ArrayList<Blirb> neighbors) {
+  private PVector calculateSeparation(ArrayList<Blirb> neighbors) {
     PVector force = new PVector();
     int neighborWeights = 0;
     // For each neighbor within the neighbor distance
